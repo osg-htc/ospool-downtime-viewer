@@ -1,4 +1,4 @@
-// Interfaces for the XML-To-JSON conversion output from the Topology API
+// Interfaces for the XML-To-JSON conversion output from the Topology Downtimes API
 export interface Service {
     ID: number;
     Description: string;
@@ -12,12 +12,13 @@ export interface ResourceGroup {
 
 export interface Downtime {
   Class: string;
+  ResourceName: string;
   Description: string;
   ResourceFQDN: string;
   StartTime: string;
   EndTime: string;
   Severity: string;
-  Services: Service[];
+  Services: {Service: Service};
   ResourceGroup: ResourceGroup;
 }
 
@@ -30,5 +31,22 @@ export interface DowntimesRespose {
         CurrentDowntimes: DowntimeList;
         FutureDowntimes: DowntimeList;
         PastDowntimes: DowntimeList;
+    }
+}
+
+// Interfaces for the XML-To-JSON conversion output from the Topology Resource Groups API
+
+export interface Site {
+    Name: string;
+}
+export interface ResourceGroup {
+    GridType: string;
+    GroupName: string;
+    Site: Site;
+}
+
+export interface ResourceGroupsResponse {
+    ResourceSummary: {
+        ResourceGroup: ResourceGroup[]
     }
 }
