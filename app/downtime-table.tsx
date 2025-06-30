@@ -3,14 +3,21 @@
 import React, { useState } from "react"
 import { Downtime, DowntimesRespose, ParsedDowntime, ResourceGroup, ResourceGroupsResponse } from "./interfaces"
 import { DateTime } from "luxon";
+import { FaSortUp, FaSortDown, FaSort } from "react-icons/fa";
 
 interface DowntimeTableRow {
-  ResourceGroup: string
+  SiteName: string
   CurrentDowntimes: ParsedDowntime[];
   FutureDowntimes: ParsedDowntime[]
   PastDowntimes: ParsedDowntime[];
 }
 
+interface DowntimeTableSortOrder {
+  SiteName?: boolean
+  CurrentDowntimes?: boolean
+  FutureDowntimes?: boolean
+  PastDowntimes?: boolean
+}
 interface DowntimeTableProps {
   downtimes: DowntimesRespose
   resourceGroups: ResourceGroupsResponse
@@ -19,7 +26,7 @@ interface DowntimeTableProps {
 function addRGToMapIfNotExists(rgMap: { [ce: string]: DowntimeTableRow }, rgName: string) {
   if (!rgMap[rgName]) {
     rgMap[rgName] = {
-      ResourceGroup: rgName,
+      SiteName: rgName,
       CurrentDowntimes: [],
       FutureDowntimes: [],
       PastDowntimes: [],
@@ -46,7 +53,7 @@ function pivotDowntimes(downtimes: DowntimesRespose, resourceGroups: ResourceGro
 
   downtimes.Downtimes?.CurrentDowntimes?.Downtime?.forEach(dt => {
     const siteName = getSiteForResourceGroup(dt.ResourceGroup.GroupName, resourceGroups)
-    if (dt.Services.Service.Name == "CE") {
+    if (dt.Services.Service.Name /*== "CE"*/) {
       addRGToMapIfNotExists(rgMap, siteName)
       rgMap[siteName].CurrentDowntimes.push(parseDates(dt))
     }
@@ -79,15 +86,9 @@ function DTCell({children}: {children: any}) {
   return <td className="border border-gray-300 p-4 text-gray-500 dark:border-gray-700 dark:text-gray-400 align-top">{children}</td>
 }
 
-function FormatDateRange(start: DateTime, end: DateTime): string {
-  var startStr = start.toFormat('yyyy-MM-dd')
-  var endStr = end.toFormat('yyyy-MM-dd')
-  return startStr == endStr ? startStr : `${startStr} - ${endStr}`
-}
-
 function DTResourceList({downtimes}: {downtimes: ParsedDowntime[]}) {
- var [showMore, setShowMore] = useState(false)
- var maxDtCount = showMore ? 999 : 5
+ const [showMore, setShowMore] = useState(false)
+ const maxDtCount = showMore ? 999 : 5
 
  return (
   <React.Fragment>
@@ -116,17 +117,45 @@ function DTResourceList({downtimes}: {downtimes: ParsedDowntime[]}) {
  )
 }
 
+function SortIcon({isSorted}: {isSorted?: boolean}) {
+  return (
+    isSorted === true ? <FaSortDown className="self-center"/> : isSorted === false ? <FaSortUp className="self-center"/> : <FaSort className="self-center"/>
+  )
+}
+
 export default function DowntimeTable({ downtimes, resourceGroups }: DowntimeTableProps) {
-  var downtimeRows = pivotDowntimes(downtimes, resourceGroups)
-  console.log(downtimeRows)
+  const downtimeRows = pivotDowntimes(downtimes, resourceGroups)
+
+  const [sort, setSort] = useState<DowntimeTableSortOrder>({SiteName: true})
+
+  // Default to an alpha sort in case all other flags are unset
+  var sortedRows : DowntimeTableRow[] = downtimeRows.toSorted((dta, dtb) => dta.SiteName.localeCompare(dtb.SiteName))
+  if(sort.SiteName !== undefined) {
+    sortedRows = downtimeRows.toSorted((dta, dtb) => (sort.SiteName ? 1 : -1) * dta.SiteName.localeCompare(dtb.SiteName))
+  } else if (sort.PastDowntimes !== undefined) {
+    sortedRows = downtimeRows.toSorted((dta, dtb) => (sort.PastDowntimes ? 1 : -1) * (dta.PastDowntimes.length - dtb.PastDowntimes.length))
+  } else if (sort.CurrentDowntimes !== undefined) {
+    sortedRows = downtimeRows.toSorted((dta, dtb) => (sort.CurrentDowntimes ? 1 : -1) * (dta.CurrentDowntimes.length - dtb.CurrentDowntimes.length))
+  } else if (sort.FutureDowntimes !== undefined) {
+    sortedRows = downtimeRows.toSorted((dta, dtb) => (sort.FutureDowntimes ? 1 : -1) * (dta.FutureDowntimes.length - dtb.FutureDowntimes.length))
+  }
+  
   return (
     <table className="table-auto w-full border-collapse border border-gray-400 bg-white text-sm dark:border-gray-500 dark:bg-gray-800">
       <thead className="bg-gray-50 dark:bg-gray-700">
         <tr>
-          <DTHeader rowspan={2} colspan={1}>Site</DTHeader>
-          <DTHeader colspan={3}>Past Downtimes</DTHeader>
-          <DTHeader colspan={3}>Current Downtimes</DTHeader>
-          <DTHeader colspan={3}>Upcoming Downtimes</DTHeader>
+          <DTHeader rowspan={2} colspan={1}>
+            <div className="flex content-center cursor-pointer" onClick={()=>setSort({SiteName: !sort.SiteName})}><span>Site </span><SortIcon isSorted={sort.SiteName}/></div>
+          </DTHeader>
+          <DTHeader colspan={3}>
+            <div className="flex content-center cursor-pointer" onClick={()=>setSort({PastDowntimes: !sort.PastDowntimes})}><span>Past Downtimes </span><SortIcon isSorted={sort.PastDowntimes}/></div>
+          </DTHeader>
+          <DTHeader colspan={3}>
+            <div className="flex content-center cursor-pointer" onClick={()=>setSort({CurrentDowntimes: !sort.CurrentDowntimes})}><span>Current Downtimes </span><SortIcon isSorted={sort.CurrentDowntimes}/></div>
+          </DTHeader>
+          <DTHeader colspan={3}>
+            <div className="flex content-center cursor-pointer" onClick={()=>setSort({FutureDowntimes: !sort.FutureDowntimes})}><span>Upcoming Downtimes </span><SortIcon isSorted={sort.FutureDowntimes}/></div>
+          </DTHeader>
         </tr>
         <tr>
           <DTHeader>Resource</DTHeader>
@@ -143,9 +172,9 @@ export default function DowntimeTable({ downtimes, resourceGroups }: DowntimeTab
         </tr>
       </thead>
       <tbody>
-        {downtimeRows.map(dt=>
-        <tr key={dt.ResourceGroup} className="border border-gray-400">
-          <DTCell>{dt.ResourceGroup}</DTCell>
+        {sortedRows.map(dt=>
+        <tr key={dt.SiteName} className="border border-gray-400">
+          <DTCell>{dt.SiteName}</DTCell>
           <DTResourceList downtimes={dt.PastDowntimes}/>
           <DTResourceList downtimes={dt.CurrentDowntimes}/>
           <DTResourceList downtimes={dt.FutureDowntimes}/>
