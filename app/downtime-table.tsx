@@ -32,6 +32,7 @@ function addRGToMapIfNotExists(rgMap: { [ce: string]: DowntimeTableRow }, rgName
       PastDowntimes: [],
     }
   }
+  return rgMap[rgName]
 }
 
 function getSiteForResourceGroup(rgName: string, resourceGroups: ResourceGroupsResponse) {
@@ -50,29 +51,27 @@ function parseDates(downtime: Downtime): ParsedDowntime {
 
 function pivotDowntimes(downtimes: DowntimesRespose, resourceGroups: ResourceGroupsResponse): DowntimeTableRow[] {
   var rgMap: { [ce: string]: DowntimeTableRow } = {}
+  const OspoolServiceIds = [1, 157] // 1 for CE, 157 for EP
 
-  downtimes.Downtimes?.CurrentDowntimes?.Downtime?.forEach(dt => {
-    const siteName = getSiteForResourceGroup(dt.ResourceGroup.GroupName, resourceGroups)
-    if (dt.Services.Service.Name /*== "CE"*/) {
-      addRGToMapIfNotExists(rgMap, siteName)
-      rgMap[siteName].CurrentDowntimes.push(parseDates(dt))
-    }
+  downtimes.Downtimes?.CurrentDowntimes?.Downtime
+    ?.filter(dt=> OspoolServiceIds.includes(dt.Services.Service.ID))
+    .forEach(dt => {
+      const siteName = getSiteForResourceGroup(dt.ResourceGroup.GroupName, resourceGroups)
+      addRGToMapIfNotExists(rgMap, siteName).CurrentDowntimes.push(parseDates(dt))
   })
 
-  downtimes.Downtimes?.PastDowntimes?.Downtime?.forEach(dt => {
-    const siteName = getSiteForResourceGroup(dt.ResourceGroup.GroupName, resourceGroups)
-    if (dt.Services.Service.Name /*== "CE"*/) {
-      addRGToMapIfNotExists(rgMap, siteName)
-      rgMap[siteName].PastDowntimes.push(parseDates(dt))
-    }
+  downtimes.Downtimes?.PastDowntimes?.Downtime
+    ?.filter(dt=> OspoolServiceIds.includes(dt.Services.Service.ID))
+    .forEach(dt => {
+      const siteName = getSiteForResourceGroup(dt.ResourceGroup.GroupName, resourceGroups)
+      addRGToMapIfNotExists(rgMap, siteName).PastDowntimes.push(parseDates(dt))
   })
 
-  downtimes.Downtimes?.FutureDowntimes?.Downtime?.forEach(dt => {
-    const siteName = getSiteForResourceGroup(dt.ResourceGroup.GroupName, resourceGroups)
-    if (dt.Services.Service.Name /*== "CE"*/) {
-      addRGToMapIfNotExists(rgMap, siteName)
-      rgMap[siteName].FutureDowntimes.push(parseDates(dt))
-    }
+  downtimes.Downtimes?.FutureDowntimes?.Downtime
+    ?.filter(dt=> OspoolServiceIds.includes(dt.Services.Service.ID))
+    .forEach(dt => {
+      const siteName = getSiteForResourceGroup(dt.ResourceGroup.GroupName, resourceGroups)
+      addRGToMapIfNotExists(rgMap, siteName).FutureDowntimes.push(parseDates(dt))
   })
 
   return Object.values(rgMap)
@@ -127,59 +126,72 @@ export default function DowntimeTable({ downtimes, resourceGroups }: DowntimeTab
   const downtimeRows = pivotDowntimes(downtimes, resourceGroups)
 
   const [sort, setSort] = useState<DowntimeTableSortOrder>({SiteName: true})
+  const [filter, setFilter] = useState("")
 
   // Default to an alpha sort in case all other flags are unset
-  var sortedRows : DowntimeTableRow[] = downtimeRows.toSorted((dta, dtb) => dta.SiteName.localeCompare(dtb.SiteName))
+  var sortedRows : DowntimeTableRow[] = downtimeRows
+    .filter(dt=>dt.SiteName.toLocaleLowerCase().includes(filter.toLocaleLowerCase())) 
+    .toSorted((dta, dtb) => dta.SiteName.localeCompare(dtb.SiteName))
   if(sort.SiteName !== undefined) {
-    sortedRows = downtimeRows.toSorted((dta, dtb) => (sort.SiteName ? 1 : -1) * dta.SiteName.localeCompare(dtb.SiteName))
+    sortedRows.sort((dta, dtb) => (sort.SiteName ? 1 : -1) * dta.SiteName.localeCompare(dtb.SiteName))
   } else if (sort.PastDowntimes !== undefined) {
-    sortedRows = downtimeRows.toSorted((dta, dtb) => (sort.PastDowntimes ? 1 : -1) * (dta.PastDowntimes.length - dtb.PastDowntimes.length))
+    sortedRows.sort((dta, dtb) => (sort.PastDowntimes ? 1 : -1) * (dta.PastDowntimes.length - dtb.PastDowntimes.length))
   } else if (sort.CurrentDowntimes !== undefined) {
-    sortedRows = downtimeRows.toSorted((dta, dtb) => (sort.CurrentDowntimes ? 1 : -1) * (dta.CurrentDowntimes.length - dtb.CurrentDowntimes.length))
+    sortedRows.sort((dta, dtb) => (sort.CurrentDowntimes ? 1 : -1) * (dta.CurrentDowntimes.length - dtb.CurrentDowntimes.length))
   } else if (sort.FutureDowntimes !== undefined) {
-    sortedRows = downtimeRows.toSorted((dta, dtb) => (sort.FutureDowntimes ? 1 : -1) * (dta.FutureDowntimes.length - dtb.FutureDowntimes.length))
+    sortedRows.sort((dta, dtb) => (sort.FutureDowntimes ? 1 : -1) * (dta.FutureDowntimes.length - dtb.FutureDowntimes.length))
   }
   
   return (
-    <table className="table-auto w-full border-collapse border border-gray-400 bg-white text-sm dark:border-gray-500 dark:bg-gray-800">
-      <thead className="bg-gray-50 dark:bg-gray-700">
-        <tr>
-          <DTHeader rowspan={2} colspan={1}>
-            <div className="flex content-center cursor-pointer" onClick={()=>setSort({SiteName: !sort.SiteName})}><span>Site </span><SortIcon isSorted={sort.SiteName}/></div>
-          </DTHeader>
-          <DTHeader colspan={3}>
-            <div className="flex content-center cursor-pointer" onClick={()=>setSort({PastDowntimes: !sort.PastDowntimes})}><span>Past Downtimes </span><SortIcon isSorted={sort.PastDowntimes}/></div>
-          </DTHeader>
-          <DTHeader colspan={3}>
-            <div className="flex content-center cursor-pointer" onClick={()=>setSort({CurrentDowntimes: !sort.CurrentDowntimes})}><span>Current Downtimes </span><SortIcon isSorted={sort.CurrentDowntimes}/></div>
-          </DTHeader>
-          <DTHeader colspan={3}>
-            <div className="flex content-center cursor-pointer" onClick={()=>setSort({FutureDowntimes: !sort.FutureDowntimes})}><span>Upcoming Downtimes </span><SortIcon isSorted={sort.FutureDowntimes}/></div>
-          </DTHeader>
-        </tr>
-        <tr>
-          <DTHeader>Resource</DTHeader>
-          <DTHeader>Start</DTHeader>
-          <DTHeader>End</DTHeader>
-          
-          <DTHeader>Resource</DTHeader>
-          <DTHeader>Start</DTHeader>
-          <DTHeader>End</DTHeader>
-          
-          <DTHeader>Resource</DTHeader>
-          <DTHeader>Start</DTHeader>
-          <DTHeader>End</DTHeader>
-        </tr>
-      </thead>
-      <tbody>
-        {sortedRows.map(dt=>
-        <tr key={dt.SiteName} className="border border-gray-400">
-          <DTCell>{dt.SiteName}</DTCell>
-          <DTResourceList downtimes={dt.PastDowntimes}/>
-          <DTResourceList downtimes={dt.CurrentDowntimes}/>
-          <DTResourceList downtimes={dt.FutureDowntimes}/>
-        </tr>)}
-      </tbody>
-    </table>
+    <div className="w-full">
+      <input 
+        className="shadow appearance-none border rounded max-w-90 w-full py-2 px-3 my-4 border-gray-300 text-gray-700 leading-tight focus:outline-none focus:shadow-outline dark:border-gray-700 dark:text-gray-400 dark:bg-gray-800" 
+        type="text" 
+        placeholder="Site Name" 
+        value={filter}
+        onChange={e => setFilter(e.target.value)}
+      />
+
+      <table className="table-auto w-full border-collapse border border-gray-400 bg-white text-sm dark:border-gray-500 dark:bg-gray-800">
+        <thead className="bg-gray-50 dark:bg-gray-700">
+          <tr>
+            <DTHeader rowspan={2} colspan={1}>
+              <div className="flex content-center cursor-pointer" onClick={()=>setSort({SiteName: !sort.SiteName})}><span>Site </span><SortIcon isSorted={sort.SiteName}/></div>
+            </DTHeader>
+            <DTHeader colspan={3}>
+              <div className="flex content-center cursor-pointer" onClick={()=>setSort({PastDowntimes: !sort.PastDowntimes})}><span>Past Downtimes </span><SortIcon isSorted={sort.PastDowntimes}/></div>
+            </DTHeader>
+            <DTHeader colspan={3}>
+              <div className="flex content-center cursor-pointer" onClick={()=>setSort({CurrentDowntimes: !sort.CurrentDowntimes})}><span>Current Downtimes </span><SortIcon isSorted={sort.CurrentDowntimes}/></div>
+            </DTHeader>
+            <DTHeader colspan={3}>
+              <div className="flex content-center cursor-pointer" onClick={()=>setSort({FutureDowntimes: !sort.FutureDowntimes})}><span>Upcoming Downtimes </span><SortIcon isSorted={sort.FutureDowntimes}/></div>
+            </DTHeader>
+          </tr>
+          <tr>
+            <DTHeader>Resource</DTHeader>
+            <DTHeader>Start</DTHeader>
+            <DTHeader>End</DTHeader>
+            
+            <DTHeader>Resource</DTHeader>
+            <DTHeader>Start</DTHeader>
+            <DTHeader>End</DTHeader>
+            
+            <DTHeader>Resource</DTHeader>
+            <DTHeader>Start</DTHeader>
+            <DTHeader>End</DTHeader>
+          </tr>
+        </thead>
+        <tbody>
+          {sortedRows.map(dt=>
+          <tr key={dt.SiteName} className="border border-gray-400">
+            <DTCell>{dt.SiteName}</DTCell>
+            <DTResourceList downtimes={dt.PastDowntimes}/>
+            <DTResourceList downtimes={dt.CurrentDowntimes}/>
+            <DTResourceList downtimes={dt.FutureDowntimes}/>
+          </tr>)}
+        </tbody>
+      </table>
+    </div>
   )
 }

@@ -1,0 +1,6 @@
+services:
+  downtime-viewer:
+      image: "hub.opensciencegrid.org/osgpreview/topology-downtimes"
+      build: .
+      ports:
+      - "3000:3000"
