@@ -1,3 +1,4 @@
+import { DateTime } from "luxon";
 // Interfaces for the XML-To-JSON conversion output from the Topology Downtimes API
 export interface Service {
     ID: number;
@@ -32,6 +33,12 @@ export interface DowntimesRespose {
         FutureDowntimes: DowntimeList;
         PastDowntimes: DowntimeList;
     }
+}
+
+// interface for Downtime with parsed start/end time
+export interface ParsedDowntime extends Downtime {
+    StartDate: DateTime
+    EndDate: DateTime
 }
 
 // Interfaces for the XML-To-JSON conversion output from the Topology Resource Groups API
