@@ -23,15 +23,15 @@ export interface Downtime {
   ResourceGroup: ResourceGroup;
 }
 
-export interface DowntimeList {
-    Downtime: Downtime[];
+export interface DowntimeOrDowntimeList {
+    Downtime: Downtime | Downtime[];
 }
 
 export interface DowntimesRespose {
     Downtimes: {
-        CurrentDowntimes: DowntimeList;
-        FutureDowntimes: DowntimeList;
-        PastDowntimes: DowntimeList;
+        CurrentDowntimes: DowntimeOrDowntimeList;
+        FutureDowntimes: DowntimeOrDowntimeList;
+        PastDowntimes: DowntimeOrDowntimeList;
     }
 }
 

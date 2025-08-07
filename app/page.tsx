@@ -11,7 +11,6 @@ export default async function Home() {
   const res = await fetch('https://topology.opensciencegrid.org/rgdowntime/xml?downtime_attrs_showpast=45')
   const data = await res.text()
   const parsedData = new XMLParser().parse(data) as DowntimesRespose
-  console.log(parsedData)
 
   const siteRes = await fetch('https://topology.opensciencegrid.org/rgsummary/xml')
   const siteData = await siteRes.text()

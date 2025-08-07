@@ -1,9 +1,10 @@
 'use client'
 
-import React, { useState } from "react"
-import { Downtime, DowntimesRespose, ParsedDowntime, ResourceGroup, ResourceGroupsResponse } from "./interfaces"
+import React, { useEffect, useState } from "react"
+import { Downtime, DowntimeOrDowntimeList, DowntimesRespose, ParsedDowntime, ResourceGroup, ResourceGroupsResponse } from "./interfaces"
 import { DateTime } from "luxon";
 import { FaSortUp, FaSortDown, FaSort } from "react-icons/fa";
+import { XMLParser } from "fast-xml-parser";
 
 interface DowntimeTableRow {
   SiteName: string
@@ -49,25 +50,35 @@ function parseDates(downtime: Downtime): ParsedDowntime {
 
 }
 
+function downtimeOrListToDowntimeList(dt: DowntimeOrDowntimeList) : Downtime[] {
+  // XML response returned by topology may be a single downtime object or a list,
+  // normalize to a list
+  if (Array.isArray(dt.Downtime)) {
+    return dt.Downtime
+  } else {
+    return [dt.Downtime]
+  }
+}
+
 function pivotDowntimes(downtimes: DowntimesRespose, resourceGroups: ResourceGroupsResponse): DowntimeTableRow[] {
   var rgMap: { [ce: string]: DowntimeTableRow } = {}
   const OspoolServiceIds = [1, 157] // 1 for CE, 157 for EP
 
-  downtimes.Downtimes?.CurrentDowntimes?.Downtime
+  downtimeOrListToDowntimeList(downtimes.Downtimes?.CurrentDowntimes)
     ?.filter(dt=> OspoolServiceIds.includes(dt.Services.Service.ID))
     .forEach(dt => {
       const siteName = getSiteForResourceGroup(dt.ResourceGroup.GroupName, resourceGroups)
       addRGToMapIfNotExists(rgMap, siteName).CurrentDowntimes.push(parseDates(dt))
   })
 
-  downtimes.Downtimes?.PastDowntimes?.Downtime
+  downtimeOrListToDowntimeList(downtimes.Downtimes?.PastDowntimes)
     ?.filter(dt=> OspoolServiceIds.includes(dt.Services.Service.ID))
     .forEach(dt => {
       const siteName = getSiteForResourceGroup(dt.ResourceGroup.GroupName, resourceGroups)
       addRGToMapIfNotExists(rgMap, siteName).PastDowntimes.push(parseDates(dt))
   })
 
-  downtimes.Downtimes?.FutureDowntimes?.Downtime
+  downtimeOrListToDowntimeList(downtimes.Downtimes?.FutureDowntimes)
     ?.filter(dt=> OspoolServiceIds.includes(dt.Services.Service.ID))
     .forEach(dt => {
       const siteName = getSiteForResourceGroup(dt.ResourceGroup.GroupName, resourceGroups)
@@ -122,8 +133,33 @@ function SortIcon({isSorted}: {isSorted?: boolean}) {
   )
 }
 
+async function fetchDowntimeData() {
+  const res = await fetch('/api/downtimes')
+  const data = (await res.json()) as DowntimesRespose
+
+  const siteRes = await fetch('/api/resource-groups')
+  const siteData = (await siteRes.json()) as ResourceGroupsResponse
+
+  return {
+    downtimes: data,
+    resourceGroups: siteData,
+  }
+}
+
 export default function DowntimeTable({ downtimes, resourceGroups }: DowntimeTableProps) {
-  const downtimeRows = pivotDowntimes(downtimes, resourceGroups)
+
+  const [downtimeData, setDowntimeData] = useState(downtimes)
+  const [rgData, setRGData] = useState(resourceGroups)
+
+  useEffect(() => {
+    fetchDowntimeData().then(({downtimes, resourceGroups})=>{
+      setDowntimeData(downtimes)
+      setRGData(resourceGroups)
+    })
+  }, [])
+
+
+  const downtimeRows = pivotDowntimes(downtimeData, rgData)
 
   const [sort, setSort] = useState<DowntimeTableSortOrder>({SiteName: true})
   const [filter, setFilter] = useState("")
