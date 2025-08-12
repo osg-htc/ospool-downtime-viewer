@@ -55,14 +55,17 @@ function downtimeOrListToDowntimeList(dt: DowntimeOrDowntimeList) : Downtime[] {
   // normalize to a list
   if (Array.isArray(dt.Downtime)) {
     return dt.Downtime
-  } else {
+  } else if (dt.Downtime) {
     return [dt.Downtime]
+  } else {
+    return []
   }
 }
 
 function pivotDowntimes(downtimes: DowntimesRespose, resourceGroups: ResourceGroupsResponse): DowntimeTableRow[] {
   var rgMap: { [ce: string]: DowntimeTableRow } = {}
   const OspoolServiceIds = [1, 157] // 1 for CE, 157 for EP
+  console.log(downtimes, resourceGroups)
 
   downtimeOrListToDowntimeList(downtimes.Downtimes?.CurrentDowntimes)
     ?.filter(dt=> OspoolServiceIds.includes(dt.Services.Service.ID))
