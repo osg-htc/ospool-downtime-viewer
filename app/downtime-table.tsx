@@ -50,6 +50,11 @@ function parseDates(downtime: Downtime): ParsedDowntime {
 
 }
 
+// Returns true if a downtime's duration is greater than or equal to 3 months
+function downtimeIsLong(downtime: ParsedDowntime): boolean {
+  return downtime.EndDate.diff(downtime.StartDate, 'days').days >= 90 
+}
+
 function downtimeOrListToDowntimeList(dt: DowntimeOrDowntimeList) : Downtime[] {
   // XML response returned by topology may be a single downtime object or a list,
   // normalize to a list
@@ -123,7 +128,7 @@ function DTResourceList({className, downtimes}: {className?: string, downtimes: 
     </DTCell>
     <DTCell className={className}>
       {downtimes.slice(0, maxDtCount).map(dt=>(
-        <span className="text-nowrap" key={dt.ResourceName + " " + dt.StartTime}>{dt.EndDate.toFormat('yyyy-MM-dd')}<br/></span>
+        <span className={`text-nowrap ${downtimeIsLong(dt) && 'italic'}`} key={dt.ResourceName + " " + dt.StartTime}>{dt.EndDate.toFormat('yyyy-MM-dd')}<br/></span>
       ))}
     </DTCell>
   </React.Fragment>
