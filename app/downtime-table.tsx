@@ -128,7 +128,7 @@ function DTResourceList({className, downtimes}: {className?: string, downtimes: 
     </DTCell>
     <DTCell className={className}>
       {downtimes.slice(0, maxDtCount).map(dt=>(
-        <span className={`text-nowrap ${downtimeIsLong(dt) && 'italic'}`} key={dt.ResourceName + " " + dt.StartTime}>{dt.EndDate.toFormat('yyyy-MM-dd')}<br/></span>
+        <span className={`text-nowrap ${downtimeIsLong(dt) && 'font-bold text-gray-950 dark:text-gray-300'}`} key={dt.ResourceName + " " + dt.StartTime}>{dt.EndDate.toFormat('yyyy-MM-dd')}<br/></span>
       ))}
     </DTCell>
   </React.Fragment>
